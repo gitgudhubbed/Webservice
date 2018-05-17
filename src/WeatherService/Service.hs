@@ -40,7 +40,7 @@ dayHandler d conn = do
   r <- liftIO (queryNamed conn "SELECT the_date, temperature \
                                \ FROM  weather \
                                \ WHERE the_date = :dt" [":dt" := d] :: IO [WeatherField])
-  liftIO $ debugM "Date Query" (listToOutput r) -- ^ NB example of how to output debug messages
+  liftIO $ debugM "The Date" (listToOutput r) -- ^ NB example of how to output debug messages
   case r of
     [] -> notFoundHandler
     _  -> ok $ toResponse (listToOutput r)
