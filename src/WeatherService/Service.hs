@@ -66,9 +66,7 @@ insertHandler d t conn = do
 {-| Update a date/temperature pair. -}
 updateHandler :: Text -> Text -> Connection -> ServerPart Response
 updateHandler d t conn = do
-  let t' = (read $ unpack t)::Float
-  liftIO (executeNamed conn "UPDATE weather SET temperature = :t WHERE the_date = :d"
-           [":t" := t, ":d" := d])
+  liftIO (execute conn "UPDATE weather SET temperature = ? WHERE the_date = ?" (Only t))
   ok $ emptyJSONResponse
 
 {-| Return 404 Not Found and an empty JSON object -}
@@ -83,3 +81,36 @@ emptyJSONResponse = toResponse (pack "[]")
 listToOutput :: ToJSON a => [a] -> String
 listToOutput xs = "[" ++ intercalate "," (map (BC.unpack . encode) xs) ++ "]"
 
+{-| Return all records in the database that fall between d1 & d2. -}
+rangeHandler :: Text -> Text -> Connection -> ServerPart Response  
+rangeHandler d1 d2 conn = do 
+  r <- liftIO (queryNamed conn "SELECT the_date, temperature \
+                               \ FROM  weather \
+                               \ WHERE the_date >= :d1 AND the_date <= :d2" [":d1" := d1, "d2" := d2] :: IO [WeatherField])
+  liftIO $ debugM "The Date" (listToOutput r)
+  case r of
+    [] -> notFoundHandler
+    _  -> ok $ toResponse (listToOutput r)
+
+
+{-| Return the details of the day with the max. temperature between d1 & d2. -}
+maxHandler :: Text -> Text -> Connection -> ServerPart Response 
+maxHandler d1 d2 conn = do 
+  r <- liftIO (queryNamed conn "SELECT the_date, max(temperature) \
+                               \ FROM  weather \
+                               \ WHERE the_date >= :d1 AND the_date <= :d2" [":d1" := d1, "d2" := d2] :: IO [WeatherField]) 
+  liftIO $ debugM "The Date" (listToOutput r)
+  case r of
+    [] -> notFoundHandler
+    _  -> ok $ toResponse (listToOutput r)
+
+{-| Return all records in the database where temperature = t. -}
+aboveHandler :: Text -> Connection -> ServerPart Response 
+aboveHandler t conn = do 
+  r <- liftIO (queryNamed conn "SELECT * \
+                               \ FROM  weather \
+                               \ WHERE temperature = :t" [":t" := t] :: IO [WeatherField]) 
+  liftIO $ debugM "The Temperature" (listToOutput r)
+  case r of
+    [] -> notFoundHandler
+    _  -> ok $ toResponse (listToOutput r)
